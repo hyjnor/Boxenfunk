@@ -265,7 +265,7 @@ export default function DriversClient() {
             mrdata?.StandingsTable?.StandingsLists?.[0]?.DriverStandings ?? []
 
           const entry = driverStandings.find(
-            (s: any) => s.Driver?.driverId === selected.driverId
+            (s: any) => s.Driver?.driverId === selected!.driverId
           )
           if (!entry) return
 
