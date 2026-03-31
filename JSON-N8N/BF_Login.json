@@ -1,0 +1,48 @@
+{
+  "name": "BF_Login",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bf-login",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/34d66cbf6d8248249ea989bf4701010b/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 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" },
+            { "name": "Notion-Version", "value": "2022-06-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"filter\": { \"property\": \"Name\", \"title\": { \"equals\": \"{{ $json.body.email.toLowerCase() }}\" } } }"
+      },
+      "name": "Find User",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst body = $('Webhook').first().json.body;\nconst results = $input.first().json.results;\nif (!results || results.length === 0) {\n  throw new Error('Email oder Passwort falsch');\n}\nconst user = results[0];\nconst props = user.properties;\nconst storedHash = props.password_hash.rich_text[0]?.plain_text;\nif (!storedHash) throw new Error('Email oder Passwort falsch');\nconst [hash, salt] = storedHash.split(':');\nconst inputHash = crypto.createHash('sha256').update(body.password + salt).digest('hex');\nif (inputHash !== hash) throw new Error('Email oder Passwort falsch');\nif (!props.aktiv.checkbox) throw new Error('Account deaktiviert');\nconst jwt = require('jsonwebtoken');\nconst token = jwt.sign(\n  { user_id: user.id, email: body.email, username: props.username.rich_text[0]?.plain_text },\n  'BOXENFUNK_SECRET_2026',\n  { expiresIn: '7d' }\n);\nreturn [{ json: { success: true, token, user_id: user.id, username: props.username.rich_text[0]?.plain_text, punkte_total: props.punkte_total.number } }];"
+      },
+      "name": "Verify Password & JWT",
+      "type": "n8n-nodes-base.code",
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Find User", "type": "main", "index": 0 }]] },
+    "Find User": { "main": [[{ "node": "Verify Password & JWT", "type": "main", "index": 0 }]] }
+  }
+}

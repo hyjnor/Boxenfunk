@@ -1,0 +1,43 @@
+{
+  "name": "BF_GetRaces",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "bf-get-races",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/9918e5afd4e448ed85f6fdefeb659107/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"page_size\": 100 }",
+        "options": {}
+      },
+      "name": "Get Races",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.first().json.results || [];\nconst races = results.map(r => ({\n  notion_id: r.id,\n  name: r.properties.Name?.title[0]?.plain_text || '',\n  runde: r.properties.runde?.number || 0,\n  jolpica_round: r.properties.jolpica_round?.number || 0,\n  saison: r.properties.saison?.number || 0,\n  tipps_gesperrt: r.properties.tipps_gesperrt?.checkbox || false,\n  ausgewertet: r.properties.ausgewertet?.checkbox || false\n}));\nreturn [{ json: { races } }];"
+      },
+      "name": "Format Races",
+      "type": "n8n-nodes-base.code",
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Races", "type": "main", "index": 0 }]] },
+    "Get Races": { "main": [[{ "node": "Format Races", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "name": "BF_Register",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bf-register",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nif (!body.email || !body.password || !body.username) {\n  throw new Error('Email, Passwort und Username erforderlich');\n}\nif (body.password.length < 6) {\n  throw new Error('Passwort muss mindestens 6 Zeichen haben');\n}\nreturn [{ json: { email: body.email.toLowerCase().trim(), username: body.username.trim(), password: body.password } }];"
+      },
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/34d66cbf6d8248249ea989bf4701010b/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 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" },
+            { "name": "Notion-Version", "value": "2022-06-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "filter", "value": "={ \"property\": \"Name\", \"title\": { \"equals\": \"{{ $json.email }}\" } }" }
+          ]
+        }
+      },
+      "name": "Check Email Exists",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst body = $('Webhook').first().json.body;\nconst queryResult = $input.first().json;\nif (queryResult.results && queryResult.results.length > 0) {\n  throw new Error('Email bereits registriert');\n}\nconst salt = crypto.randomBytes(16).toString('hex');\nconst hash = crypto.createHash('sha256').update(body.password + salt).digest('hex');\nreturn [{ json: { email: body.email.toLowerCase().trim(), username: body.username.trim(), password_hash: hash + ':' + salt } }];"
+      },
+      "name": "Hash Password",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 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" },
+            { "name": "Notion-Version", "value": "2022-06-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"parent\": { \"database_id\": \"34d66cbf6d8248249ea989bf4701010b\" },\n  \"properties\": {\n    \"Name\": { \"title\": [{ \"text\": { \"content\": \"{{ $json.email }}\" } }] },\n    \"username\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $json.username }}\" } }] },\n    \"password_hash\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $json.password_hash }}\" } }] },\n    \"punkte_total\": { \"number\": 0 },\n    \"aktiv\": { \"checkbox\": true },\n    \"erstellt_am\": { \"date\": { \"start\": \"{{ new Date().toISOString() }}\" } }\n  }\n}"
+      },
+      "name": "Create User",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, message: 'Account erfolgreich erstellt', user_id: $input.first().json.id } }];"
+      },
+      "name": "Return Success",
+      "type": "n8n-nodes-base.code",
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Validate Input", "type": "main", "index": 0 }]] },
+    "Validate Input": { "main": [[{ "node": "Check Email Exists", "type": "main", "index": 0 }]] },
+    "Check Email Exists": { "main": [[{ "node": "Hash Password", "type": "main", "index": 0 }]] },
+    "Hash Password": { "main": [[{ "node": "Create User", "type": "main", "index": 0 }]] },
+    "Create User": { "main": [[{ "node": "Return Success", "type": "main", "index": 0 }]] }
+  }
+}

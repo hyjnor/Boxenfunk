@@ -1,0 +1,148 @@
+{
+  "name": "BF_EvaluateRace",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 */30 * * * *" }]
+        }
+      },
+      "name": "Cron Every 30min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/9918e5afd4e448ed85f6fdefeb659107/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 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" },
+            { "name": "Notion-Version", "value": "2022-06-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"filter\": { \"and\": [ { \"property\": \"tipps_gesperrt\", \"checkbox\": { \"equals\": true } }, { \"property\": \"ausgewertet\", \"checkbox\": { \"equals\": false } } ] } }"
+      },
+      "name": "Get Pending Races",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const races = $input.first().json.results;\nif (!races || races.length === 0) return [];\nconst now = new Date();\nconst pendingRaces = races.filter(race => {\n  const raceDate = new Date(race.properties.datum.date.start);\n  const hoursSinceRace = (now - raceDate) / (1000 * 60 * 60);\n  return hoursSinceRace >= 3;\n});\nreturn pendingRaces.map(race => ({ json: { race_id: race.id, race_name: race.properties.Name.title[0].plain_text, jolpica_round: race.properties.jolpica_round.number, datum: race.properties.datum.date.start } }));"
+      },
+      "name": "Filter Ready Races",
+      "type": "n8n-nodes-base.code",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.jolpi.ca/ergast/f1/2026/{{ $json.jolpica_round }}/results.json",
+        "options": {}
+      },
+      "name": "Get Race Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.openf1.org/v1/race_control?session_key=latest&category=SafetyCar",
+        "options": {}
+      },
+      "name": "Get Safety Car Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $('Get Race Results').first().json.MRData.RaceTable.Races[0]?.Results;\nif (!results) return [];\nconst winner = results[0].Driver.code;\nconst p2 = results[1].Driver.code;\nconst p3 = results[2].Driver.code;\nconst fastestLap = results.find(r => r.FastestLap?.rank === '1')?.Driver.code || '';\nconst scData = $('Get Safety Car Data').first().json;\nconst hasSC = Array.isArray(scData) && scData.length > 0;\nconst race = $('Filter Ready Races').first().json;\nreturn [{ json: { race_id: race.race_id, winner, p2, p3, fastest_lap: fastestLap, has_safety_car: hasSC } }];"
+      },
+      "name": "Extract Results",
+      "type": "n8n-nodes-base.code",
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/pages/{{ $json.race_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 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" },
+            { "name": "Notion-Version", "value": "2022-06-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"sieger\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $json.winner }}\" } }] },\n    \"podium_p2\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $json.p2 }}\" } }] },\n    \"podium_p3\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $json.p3 }}\" } }] },\n    \"fastest_lap\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $json.fastest_lap }}\" } }] },\n    \"safety_car\": { \"checkbox\": {{ $json.has_safety_car }} },\n    \"ausgewertet\": { \"checkbox\": true }\n  }\n}"
+      },
+      "name": "Update Race in Notion",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/cd0e5d12be1048ed9e5fbf514f7e2df7/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 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" },
+            { "name": "Notion-Version", "value": "2022-06-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filter\": {\n    \"property\": \"race_id\",\n    \"rich_text\": { \"equals\": \"{{ $('Extract Results').first().json.race_id }}\" }\n  }\n}"
+      },
+      "name": "Get All Tips",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tips = $input.first().json.results;\nconst res = $('Extract Results').first().json;\nconst updates = tips.map(tip => {\n  const props = tip.properties;\n  const tippSieger = props.tipp_sieger.rich_text[0]?.plain_text || '';\n  const tippP2 = props.tipp_p2.rich_text[0]?.plain_text || '';\n  const tippP3 = props.tipp_p3.rich_text[0]?.plain_text || '';\n  const tippFL = props.tipp_fastest_lap.rich_text[0]?.plain_text || '';\n  const tippSC = props.tipp_safety_car.checkbox;\n  const pktSieger = tippSieger === res.winner ? 15 : 0;\n  const pktFL = tippFL === res.fastest_lap ? 8 : 0;\n  const pktSC = tippSC === res.has_safety_car ? 5 : 0;\n  let pktPodium = 0;\n  if (tippP2 === res.p2 && tippP3 === res.p3) pktPodium = 10;\n  else if (tippP2 === res.p2 || tippP3 === res.p3) pktPodium = 3;\n  return { json: { tip_id: tip.id, user_id: props.user_id.rich_text[0]?.plain_text, pktSieger, pktPodium, pktFL, pktSC, total: pktSieger + pktPodium + pktFL + pktSC } };\n});\nreturn updates;"
+      },
+      "name": "Calculate Points",
+      "type": "n8n-nodes-base.code",
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/pages/{{ $json.tip_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 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" },
+            { "name": "Notion-Version", "value": "2022-06-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"punkte_sieger\": { \"number\": {{ $json.pktSieger }} },\n    \"punkte_podium\": { \"number\": {{ $json.pktPodium }} },\n    \"punkte_fastest\": { \"number\": {{ $json.pktFL }} },\n    \"punkte_sc\": { \"number\": {{ $json.pktSC }} }\n  }\n}"
+      },
+      "name": "Update Tip Points",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2000, 300]
+    }
+  ],
+  "connections": {
+    "Cron Every 30min": { "main": [[{ "node": "Get Pending Races", "type": "main", "index": 0 }]] },
+    "Get Pending Races": { "main": [[{ "node": "Filter Ready Races", "type": "main", "index": 0 }]] },
+    "Filter Ready Races": { "main": [[{ "node": "Get Race Results", "type": "main", "index": 0 }, { "node": "Get Safety Car Data", "type": "main", "index": 0 }]] },
+    "Get Race Results": { "main": [[{ "node": "Extract Results", "type": "main", "index": 0 }]] },
+    "Get Safety Car Data": { "main": [[{ "node": "Extract Results", "type": "main", "index": 0 }]] },
+    "Extract Results": { "main": [[{ "node": "Update Race in Notion", "type": "main", "index": 0 }]] },
+    "Update Race in Notion": { "main": [[{ "node": "Get All Tips", "type": "main", "index": 0 }]] },
+    "Get All Tips": { "main": [[{ "node": "Calculate Points", "type": "main", "index": 0 }]] },
+    "Calculate Points": { "main": [[{ "node": "Update Tip Points", "type": "main", "index": 0 }]] }
+  }
+}

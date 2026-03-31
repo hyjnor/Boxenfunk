@@ -1,0 +1,48 @@
+{
+  "name": "BF_Leaderboard",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "bf-leaderboard",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/34d66cbf6d8248249ea989bf4701010b/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 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" },
+            { "name": "Notion-Version", "value": "2022-06-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"sorts\": [{ \"property\": \"punkte_total\", \"direction\": \"descending\" }], \"page_size\": 50 }"
+      },
+      "name": "Get All Users",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const users = $input.first().json.results;\nconst leaderboard = users.map((user, index) => ({\n  rang: index + 1,\n  username: user.properties.username.rich_text[0]?.plain_text || 'Unbekannt',\n  punkte_total: user.properties.punkte_total.number || 0,\n  user_id: user.id\n}));\nreturn [{ json: { success: true, saison: 2026, leaderboard } }];"
+      },
+      "name": "Build Leaderboard",
+      "type": "n8n-nodes-base.code",
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get All Users", "type": "main", "index": 0 }]] },
+    "Get All Users": { "main": [[{ "node": "Build Leaderboard", "type": "main", "index": 0 }]] }
+  }
+}

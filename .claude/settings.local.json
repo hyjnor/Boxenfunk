@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest pitwall-stats --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -L \"https://raw.githubusercontent.com/f1db/f1db/refs/heads/main/src/assets/circuits/white-outline/miami-international-autodrome-1.svg\" -o \"d:/AI/HP/F1/pitwall-stats/public/tracks/miami.svg\")",
+      "Bash(curl -v \"https://raw.githubusercontent.com/f1db/f1db/refs/heads/main/src/assets/circuits/white-outline/miami-international-autodrome-1.svg\")",
+      "Bash(curl -s \"https://api.github.com/repos/f1db/f1db/git/trees/main?recursive=1\")",
+      "Bash(curl -L \"https://raw.githubusercontent.com/f1db/f1db/refs/heads/main/src/assets/circuits/white-outline/miami-1.svg\" -o \"d:/AI/HP/F1/pitwall-stats/public/tracks/miami.svg\")",
+      "Bash(find /d/AI/HP/F1/pitwall-stats -name *sync* -type f)",
+      "Bash(find /d/AI/HP/F1/pitwall-stats -name *.tsx -type f)"
+    ]
+  }
+}

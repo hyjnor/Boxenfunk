@@ -1,0 +1,52 @@
+{
+  "name": "BF_CreateRace",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bf-create-race",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\nif (!body.runde || !body.name) {\n  throw new Error('runde und name erforderlich');\n}\nreturn [{ json: {\n  name: body.name,\n  runde: parseInt(body.runde),\n  saison: parseInt(body.saison || new Date().getFullYear()),\n  datum: body.datum || new Date().toISOString(),\n  circuit: body.circuit || '',\n  jolpica_round: parseInt(body.jolpica_round || body.runde)\n}}];"
+      },
+      "name": "Validate",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"parent\": { \"database_id\": \"9918e5afd4e448ed85f6fdefeb659107\" },\n  \"properties\": {\n    \"Name\": { \"title\": [{ \"text\": { \"content\": \"{{ $json.name }}\" } }] },\n    \"runde\": { \"number\": {{ $json.runde }} },\n    \"saison\": { \"number\": {{ $json.saison }} },\n    \"datum\": { \"date\": { \"start\": \"{{ $json.datum }}\" } },\n    \"circuit\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $json.circuit }}\" } }] },\n    \"jolpica_round\": { \"number\": {{ $json.jolpica_round }} },\n    \"tipps_gesperrt\": { \"checkbox\": false },\n    \"ausgewertet\": { \"checkbox\": false }\n  }\n}",
+        "options": {}
+      },
+      "name": "Create Race",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, notion_id: $input.first().json.id, message: 'Rennen angelegt' } }];"
+      },
+      "name": "Return Success",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Validate", "type": "main", "index": 0 }]] },
+    "Validate": { "main": [[{ "node": "Create Race", "type": "main", "index": 0 }]] },
+    "Create Race": { "main": [[{ "node": "Return Success", "type": "main", "index": 0 }]] }
+  }
+}
