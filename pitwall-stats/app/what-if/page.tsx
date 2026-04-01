@@ -1,4 +1,5 @@
 import WhatIfClient from './WhatIfClient'
+import Live2026 from './Live2026'
 
 export default function WhatIfPage() {
   return (
@@ -16,6 +17,7 @@ export default function WhatIfPage() {
         </p>
       </div>
       <WhatIfClient />
+      <Live2026 />
     </div>
   )
 }
