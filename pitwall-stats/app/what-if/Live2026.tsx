@@ -344,6 +344,9 @@ export default function Live2026() {
   // SC controls
   const [scEnabled, setScEnabled]             = useState(false)
   const [selectedScEvent, setSelectedScEvent] = useState<ScEvent | null>(null)
+  const [manualEvents, setManualEvents]       = useState<ScEvent[]>([])
+  const [manualLap, setManualLap]             = useState('')
+  const [manualType, setManualType]           = useState<'SC' | 'VSC'>('SC')
 
   // Pit controls
   const [pitEnabled, setPitEnabled]       = useState(false)
@@ -432,8 +435,24 @@ export default function Live2026() {
   }, [selectedRound])
 
   function resetToggles() {
-    setScEnabled(false); setSelectedScEvent(null)
+    setScEnabled(false); setSelectedScEvent(null); setManualEvents([]); setManualLap('')
     setPitEnabled(false); setSelectedDriverId(''); setPitRelToSc(-1); setPitDeltaAbs(0)
+  }
+
+  const allScEvents = [...scEvents, ...manualEvents]
+
+  function addManualEvent() {
+    const lap = parseInt(manualLap)
+    if (!lap || lap < 1 || lap > totalLaps) return
+    const id = `manual-${manualType}-${lap}`
+    if (allScEvents.find(e => e.id === id)) return
+    setManualEvents(prev => [...prev, { id, type: manualType, startLap: lap, endLap: Math.min(lap + 3, totalLaps) }])
+    setManualLap('')
+  }
+
+  function removeManualEvent(id: string) {
+    setManualEvents(prev => prev.filter(e => e.id !== id))
+    if (selectedScEvent?.id === id) setSelectedScEvent(null)
   }
 
   function applyRaceData(data: RaceCache) {
@@ -534,42 +553,85 @@ export default function Live2026() {
                 Safety Car / VSC Events
               </p>
 
-              {scEvents.length === 0 ? (
-                <p className="text-sm text-[#EAB308] mb-4">
-                  Kein SC/VSC erkannt — bitte Runde manuell setzen.
-                </p>
-              ) : (
+              {/* Detected + manual events */}
+              {allScEvents.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {scEvents.map(ev => {
-                    const isSel  = selectedScEvent?.id === ev.id
-                    const isSc   = ev.type === 'SC'
-                    const accent = isSc ? '#EF4444' : '#EAB308'
+                  {allScEvents.map(ev => {
+                    const isSel    = selectedScEvent?.id === ev.id
+                    const isSc     = ev.type === 'SC'
+                    const isManual = ev.id.startsWith('manual-')
+                    const accent   = isSc ? '#EF4444' : '#EAB308'
                     return (
-                      <button
-                        key={ev.id}
-                        onClick={() => setSelectedScEvent(isSel ? null : ev)}
-                        className="px-3 py-2 rounded-sm border text-xs font-bold transition-all"
-                        style={{
-                          background:  isSel ? `rgba(${isSc ? '239,68,68' : '234,179,8'},0.12)` : '#0A0E1A',
-                          borderColor: isSel ? accent : '#1E293B',
-                          color:       isSel ? accent : '#94A3B8',
-                        }}
-                      >
-                        <span className="font-black">{ev.type}</span>
-                        <span className="ml-1.5 font-normal">R{ev.startLap}–{ev.endLap}</span>
-                        <span className="ml-1.5 text-[9px] opacity-60">({ev.endLap - ev.startLap + 1} Runden)</span>
-                      </button>
+                      <div key={ev.id} className="flex items-center gap-1">
+                        <button
+                          onClick={() => setSelectedScEvent(isSel ? null : ev)}
+                          className="px-3 py-2 rounded-sm border text-xs font-bold transition-all"
+                          style={{
+                            background:  isSel ? `rgba(${isSc ? '239,68,68' : '234,179,8'},0.12)` : '#0A0E1A',
+                            borderColor: isSel ? accent : '#1E293B',
+                            color:       isSel ? accent : '#94A3B8',
+                          }}
+                        >
+                          <span className="font-black">{ev.type}</span>
+                          <span className="ml-1.5 font-normal">R{ev.startLap}</span>
+                          {isManual && <span className="ml-1 text-[9px] opacity-50">manuell</span>}
+                        </button>
+                        {isManual && (
+                          <button
+                            onClick={() => removeManualEvent(ev.id)}
+                            className="text-[10px] px-1.5 py-1 rounded-sm border transition-colors"
+                            style={{ color: '#475569', borderColor: '#1E293B' }}
+                            title="Entfernen"
+                          >✕</button>
+                        )}
+                      </div>
                     )
                   })}
                 </div>
               )}
 
+              {scEvents.length === 0 && manualEvents.length === 0 && (
+                <p className="text-xs text-[#EAB308] mb-3">
+                  Keine SC/VSC-Daten verfügbar — bitte manuell eingeben.
+                </p>
+              )}
+
+              {/* Manual input */}
+              <div className="flex items-center gap-2 mt-1">
+                <select
+                  value={manualType}
+                  onChange={e => setManualType(e.target.value as 'SC' | 'VSC')}
+                  className="px-2 py-1.5 text-xs font-bold rounded-sm border focus:outline-none"
+                  style={{ background: '#0A0E1A', color: '#F1F5F9', borderColor: '#1E293B', minWidth: 64 }}
+                >
+                  <option value="SC">SC</option>
+                  <option value="VSC">VSC</option>
+                </select>
+                <input
+                  type="number"
+                  placeholder={`Runde (1–${totalLaps})`}
+                  value={manualLap}
+                  onChange={e => setManualLap(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addManualEvent()}
+                  min={1} max={totalLaps}
+                  className="flex-1 px-3 py-1.5 text-xs rounded-sm border focus:outline-none"
+                  style={{ background: '#0A0E1A', color: '#F1F5F9', borderColor: '#1E293B' }}
+                />
+                <button
+                  onClick={addManualEvent}
+                  className="px-3 py-1.5 text-xs font-bold rounded-sm border transition-colors"
+                  style={{ background: 'rgba(56,189,248,0.08)', borderColor: 'rgba(56,189,248,0.3)', color: '#38BDF8' }}
+                >
+                  + Hinzufügen
+                </button>
+              </div>
+
               {/* Effect legend */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
                 {(Object.entries(SC_META) as [NonNullable<ScEffect>, typeof SC_META[NonNullable<ScEffect>]][]).map(([key, meta]) => (
                   <div key={key} className="px-2 py-1.5 rounded-sm border text-[10px] font-bold"
                     style={{ background: meta.bg, borderColor: meta.border, color: meta.text }}>
-                    {key === 'free'    && 'Stopp während/nach SC'}
+                    {key === 'free'    && 'Stopp nach SC-Start'}
                     {key === 'lost'    && '0–3 Runden vor SC'}
                     {key === 'neutral' && '4–12 Runden vor SC'}
                     {key === 'cheap'   && '> 12 Runden vor SC'}
