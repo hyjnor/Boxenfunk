@@ -30,7 +30,7 @@ interface PitStop {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const SEASONS = ['2024', '2023', '2022', '2021', '2020']
+const SEASONS = ['2025', '2024', '2023', '2022', '2021', '2020']
 
 const TEAM_COLORS: Record<string, string> = {
   red_bull:      '#3671C6',

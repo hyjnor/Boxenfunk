@@ -458,7 +458,7 @@ export default function Live2026() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="mt-16 pt-12 border-t border-[#1E293B]">
+    <div>
 
       {/* Section header */}
       <div className="flex items-center gap-3 mb-2">

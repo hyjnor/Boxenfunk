@@ -16,8 +16,10 @@ export default function WhatIfPage() {
           Replay historical F1 races and change one pit stop decision to see how the result could have changed.
         </p>
       </div>
-      <WhatIfClient />
       <Live2026 />
+      <div className="mt-16 pt-12 border-t border-[#1E293B]">
+        <WhatIfClient />
+      </div>
     </div>
   )
 }
